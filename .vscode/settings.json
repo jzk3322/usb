@@ -1,0 +1,19 @@
+{
+    "files.associations": {
+        "at32f421_wk_config.h": "c",
+        "at32f421.h": "c",
+        "io_key.h": "c",
+        "usr_desplay_task.h": "c",
+        "lcd_init.h": "c",
+        "usr_i2c.h": "c",
+        "mo_config.h": "c",
+        "at32f421_conf.h": "c",
+        "i2c_application.h": "c",
+        "at32f421_misc.h": "c",
+        "lcd.h": "c",
+        "ina226.h": "c",
+        "usr_debug.h": "c",
+        "stdint.h": "c",
+        "string.h": "c"
+    }
+}

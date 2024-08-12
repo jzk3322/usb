@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Root>
+    <MCUInfo>
+        <MCUSerials>AT32F421</MCUSerials>
+        <MCUName>AT32F421F8P7</MCUName>
+        <MCUPackage>TSSOP20</MCUPackage>
+    </MCUInfo>
+    <DEBUG>
+        <Mode>
+            <ModeSub name="SWD" value="FALSE"/>
+        </Mode>
+    </DEBUG>
+    <EXINT>
+        <Mode>
+            <ModeSub name="EXINT0" value="TRUE"/>
+        </Mode>
+        <Parameters>
+            <ParametersSub name="TriggerPolarity_0" value="EXINT_TRIGGER_FALLING_EDGE"/>
+        </Parameters>
+    </EXINT>
+    <I2C1>
+        <Mode>
+            <ModeSub name="I2C" value="I2C"/>
+        </Mode>
+        <Parameters>
+            <ParametersSub name="DualAddressMode" value="DISABLE"/>
+            <ParametersSub name="GeneralCallMode" value="FALSE"/>
+        </Parameters>
+    </I2C1>
+    <SPI1>
+        <Mode>
+            <ModeSub name="Mode" value="Simplex_Bidirectional_Master_TX"/>
+            <ModeSub name="CS_Signal" value="CS_Signal_Hard_Output"/>
+        </Mode>
+        <Parameters>
+            <ParametersSub name="TransmissionMode" value="SPI_TRANSMIT_HALF_DUPLEX_TX"/>
+            <ParametersSub name="Mode" value="SPI_MODE_MASTER"/>
+            <ParametersSub name="FirstBit" value="SPI_FIRST_BIT_MSB"/>
+            <ParametersSub name="ClockFrequency" value="30000000"/>
+            <ParametersSub name="VirtualCS" value="SPI_CS_HARDWARE_MODE"/>
+        </Parameters>
+    </SPI1>
+    <TMR3>
+        <Mode>
+            <ModeSub name="Channel4 mode" value="Output_CH4"/>
+            <ModeSub name="Activated" value="TRUE"/>
+        </Mode>
+        <Parameters>
+            <ParametersSub name="Period" value="40000"/>
+            <ParametersSub name="OCMode_4" value="TMR_OUTPUT_CONTROL_PWM_MODE_A"/>
+        </Parameters>
+    </TMR3>
+    <TMR15>
+        <Mode>
+            <ModeSub name="Channel2 mode" value="Output_CH2"/>
+            <ModeSub name="Activated" value="TRUE"/>
+        </Mode>
+        <Parameters>
+            <ParametersSub name="ClockDivision" value="TMR_CLOCK_DIV2"/>
+            <ParametersSub name="OCMode_2" value="TMR_OUTPUT_CONTROL_PWM_MODE_A"/>
+        </Parameters>
+    </TMR15>
+    <USART1>
+        <Mode>
+            <ModeSub name="Mode" value="Asynchronous"/>
+        </Mode>
+        <Parameters>
+            <ParametersSub name="BaudRate" value="1000000"/>
+        </Parameters>
+    </USART1>
+    <NVIC>
+        <SysTick_Handler>1;0;0</SysTick_Handler>
+        <FLASH_IRQHandler>0;0;0</FLASH_IRQHandler>
+        <CRM_IRQHandler>0;0;0</CRM_IRQHandler>
+        <EXINT1_0_IRQHandler>1;0;0</EXINT1_0_IRQHandler>
+        <TMR3_GLOBAL_IRQHandler>0;0;0</TMR3_GLOBAL_IRQHandler>
+        <TMR15_GLOBAL_IRQHandler>0;0;0</TMR15_GLOBAL_IRQHandler>
+        <I2C1_EVT_IRQHandler>0;0;0</I2C1_EVT_IRQHandler>
+        <SPI1_IRQHandler>0;0;0</SPI1_IRQHandler>
+        <USART1_IRQHandler>1;0;0</USART1_IRQHandler>
+        <I2C1_ERR_IRQHandler>0;0;0</I2C1_ERR_IRQHandler>
+    </NVIC>
+    <GPIO>
+        <Signal SignalName="EXINT0" PinName="PA0">
+            <Parameters name="GPIO_PullType_Set" value="GPIO_PULL_UP"/>
+        </Signal>
+        <Signal SignalName="GPIO_Input" PinName="PA1">
+            <Parameters name="GPIO_PullType_Set" value="GPIO_PULL_UP"/>
+        </Signal>
+        <Signal SignalName="GPIO_Input" PinName="PA2">
+            <Parameters name="GPIO_PullType_Set" value="GPIO_PULL_UP"/>
+        </Signal>
+    </GPIO>
+    <ClockConfiguration>
+        <lextbypass>0</lextbypass>
+        <rtcsel>0</rtcsel>
+        <hext>8.000000</hext>
+        <hextbypass>0</hextbypass>
+        <pllhextdiv>0</pllhextdiv>
+        <pllrcs>1</pllrcs>
+        <pllmode>0</pllmode>
+        <pllmult>30</pllmult>
+        <pllms>1</pllms>
+        <pllns>120</pllns>
+        <pllfr>8</pllfr>
+        <sclkselect>1</sclkselect>
+        <ahbdiv>1</ahbdiv>
+        <apb1div>1</apb1div>
+        <apb2div>1</apb2div>
+        <hicktosclk>0</hicktosclk>
+        <clkout>0</clkout>
+        <clkoutdiv>1</clkoutdiv>
+        <clkoutpinselect>0</clkoutpinselect>
+        <adcswitch>0</adcswitch>
+        <adcdiv>6</adcdiv>
+    </ClockConfiguration>
+    <PINInfo>
+        <PinSub pinname="PF0/HEXT_IN" signalname="I2C1_SDA" signaltype="2"/>
+        <PinSub pinname="PF1/HEXT_OUT" signalname="I2C1_SCL" signaltype="2"/>
+        <PinSub pinname="PA0" signalname="EXINT0" signaltype="2"/>
+        <PinSub pinname="PA1" signalname="GPIO_Input" signaltype="3"/>
+        <PinSub pinname="PA2" signalname="GPIO_Input" signaltype="3"/>
+        <PinSub pinname="PA3" signalname="TMR15_CH2" signaltype="3"/>
+        <PinSub pinname="PA4" signalname="SPI1_CS" signaltype="2"/>
+        <PinSub pinname="PA5" signalname="SPI1_SCK" signaltype="2"/>
+        <PinSub pinname="PA6" signalname="GPIO_Output" signaltype="3"/>
+        <PinSub pinname="PA7" signalname="SPI1_MOSI" signaltype="2"/>
+        <PinSub pinname="PB1" signalname="TMR3_CH4" signaltype="3"/>
+        <PinSub pinname="PA9 [PA11]" signalname="USART1_TX" signaltype="2"/>
+        <PinSub pinname="PA10 [PA12]" signalname="USART1_RX" signaltype="2"/>
+        <PinSub pinname="PA13" signalname="GPIO_Output" signaltype="3"/>
+        <PinSub pinname="PA14" signalname="GPIO_Output" signaltype="3"/>
+    </PINInfo>
+    <ProjectInfomation>
+        <ProjectName>AT32F421F8P7-USB-PS-V3</ProjectName>
+        <ProjectLocation>D:/Artery/USB-PS-V3.0/usb-ps-v3.0/mcu-prj</ProjectLocation>
+        <ToolchainIDE>AT32_IDE</ToolchainIDE>
+        <KeepUserCode>true</KeepUserCode>
+        <MinHeapSize>0x200</MinHeapSize>
+        <MinStackSize>0x400</MinStackSize>
+        <UseFirmware>true</UseFirmware>
+        <PackageVersion>V2.1.6</PackageVersion>
+    </ProjectInfomation>
+</Root>

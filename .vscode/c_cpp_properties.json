@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${default}",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/inc",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/libraries/cmsis/cm4/device_support",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/libraries/cmsis/cm4/core_support",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/AT32_IDE/user/mcu_os/mcu",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/libraries/drivers/inc",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/AT32_IDE/user/btn",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/AT32_IDE/user/mcu_os/mo_input",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/AT32_IDE/user/mcu_os/mo_core",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/AT32_IDE/bsp",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/AT32_IDE/bsp/lcd",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/project/AT32_IDE/user/usr_apps",
+                "${workspaceFolder}/mcu-prj/AT32F421F8P7-USB-PS-V3/middlewares/i2c_application_library"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "compilerPath": "C:\\mingw64\\bin\\gcc.exe",
+            "cStandard": "c17",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}
