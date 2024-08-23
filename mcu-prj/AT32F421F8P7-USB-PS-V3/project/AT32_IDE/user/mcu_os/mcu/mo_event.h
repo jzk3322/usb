@@ -90,6 +90,8 @@ typedef enum {
     USR_REC_STEP_DEC_100_TIMEOUT,
     USR_REC_STEP_DEC_50_TIMEOUT,
 
+    USR_OUT_V_CALIBRATION,
+    USR_SAVE_CFG_DAT_TO_FLASHE,
     /*****user event end******************************/
 
     /*****System event start from 0x8000***/

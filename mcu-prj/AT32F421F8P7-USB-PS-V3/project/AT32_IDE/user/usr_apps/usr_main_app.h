@@ -23,12 +23,14 @@ extern "C" {
 #include "mo_msg.h"
 #include "usr_input_task.h"
 
+#define USB_PS_SW_VER  "V1.2"
+
 #define VOUT_MAX         34000ul /*mV*/
 #define VOUT_MIN         2000ul  /*mV*/
 #define DEFAULT_O_VOL    3300ul  /*mV*/
 #define DEFAULT_OC_LIMIT 8000ul  /*mA*/
 #define OC_MAX           8000ul  /*mA*/
-#define OC_MIN           80ul   /*mA*/
+#define OC_MIN           500ul   /*mA*/
 
 // #define PD_CFG1_PORT           GPIOA
 // #define PD_CFG2_PORT           GPIOA
@@ -44,6 +46,17 @@ extern "C" {
 //     gpio_bits_write(PD_CFG2_PORT, PD_CGF2_PIN, cfg2);\
 //     gpio_bits_write(PD_CFG3_PORT, PD_CGF3_PIN, cfg3);\
 // }
+#define LOW_CALIBRATION_VOL  6000ul /*5.00V*/
+#define HEIGHT_CALIBRATION_VOL 23000ul /*28.00V*/
+#define MIDDLE_CALIBRATION_VOL 17000ul /*17.00V*/
+
+#define LOW_CAL_STEP     10ul
+#define HEIGHT_CAL_STEP  10ul
+#define MIDDLE_CAL_STEP  10ul
+
+#define L_CAL_TRY_TIMES  120ul
+#define H_CAL_TRY_TIMES  120ul
+
 
 #define OUT_CTRL_PORT GPIOA
 #define OUT_CTRL_PIN  GPIO_PINS_14
@@ -86,9 +99,11 @@ typedef enum{
     
 }OUT_CTRL_T;
 typedef struct config_datas_{
-    mo_s32 out_vol;
-    mo_s32 limit_curr;/*mA*/
-
+    mo_u16 out_vol;
+    mo_u16 limit_curr;/*mA*/
+    mo_u16 h_vmax_set;
+    mo_u16 l_vmax_set;
+    mo_u16 m_vmax_set;
 }CfigDatsT;
 
 

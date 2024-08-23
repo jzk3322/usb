@@ -13,6 +13,7 @@
 #include "ina226.h"
 #include "usr_desplay_task.h"
 #include "usr_debug.h"
+#include "usr_flash.h"
 #include "usr_main_app.h"
 
 typedef struct usr_main_app_tsk {
@@ -23,11 +24,13 @@ typedef struct usr_main_app_tsk {
     MonitorDatsT m_dat;
     PD_REQ_VOL_T pd_req_vol;
     OUT_CTRL_T out_ctrl;
+    mo_u8 app_set_flg;
 } UsrMainAppTskT;
 
 static UsrMainAppTskT main_tsk;
-static void set_out_voltage(mo_s32 vol);
-static void set_out_current(mo_s32 curr);
+static void set_out_voltage(mo_u16 vol);
+static void set_out_current(mo_u16 curr);
+static void usr_save_cfg_data_to_flash(void);
 
 CfigDatsT main_app_get_cfg_dat(void){
     return main_tsk.cfg_dat;
@@ -59,9 +62,11 @@ static void out_voltage_decrease_handle(u16 step){
             mo_msg_send(get_usr_display_task(),USR_SYNC_OVOL_TO_HOST,cdat,0);
         }
 
-        // set_out_voltage(main_tsk.cfg_dat.out_vol); 
-        // main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
-
+        if(!main_tsk.out_ctrl || main_tsk.app_set_flg==0){
+            set_out_voltage(main_tsk.cfg_dat.out_vol); 
+            main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
+        }
+        
     }
 }
 
@@ -84,8 +89,10 @@ static void out_voltage_increase_handle(u16 step) {
             mo_msg_send(get_usr_display_task(),USR_SYNC_OVOL_TO_HOST,cdat,0);
         }
 
-        // set_out_voltage(main_tsk.cfg_dat.out_vol);
-        // main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
+        if(!main_tsk.out_ctrl || main_tsk.app_set_flg==0){
+            set_out_voltage(main_tsk.cfg_dat.out_vol); 
+            main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
+        }
 
     }
 
@@ -104,9 +111,15 @@ static void out_voltage_set_handle(mo_u32 ovl) {
         mo_msg_send(get_usr_display_task(),USR_LCD_UPDATE_OUT_CFG_DAT,cdat,0);
     }
 
-    //  set_out_voltage(main_tsk.cfg_dat.out_vol); 
-    //  main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
+    if(!main_tsk.out_ctrl){
+        set_out_voltage(main_tsk.cfg_dat.out_vol); 
+        main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
+    }else{
+        main_tsk.app_set_flg=1;
+    }
     
+    mo_msg_cancel_all(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE);
+    mo_msg_send(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE,NULL,3000);
 }
 static void out_current_set_handle(mo_u32 curr) {
     CfigDatsT *cdat;
@@ -123,6 +136,8 @@ static void out_current_set_handle(mo_u32 curr) {
 
     //  set_out_voltage(main_tsk.cfg_dat.out_vol); 
     //  main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
+    mo_msg_cancel_all(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE);
+    mo_msg_send(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE,NULL,3000);
     
 }
 
@@ -146,6 +161,7 @@ static void out_limit_curr_decrease_handle(u16 step){
         }
     }
 
+
 }
 
 static void out_limit_curr_increase_handle(u16 step) {
@@ -163,6 +179,7 @@ static void out_limit_curr_increase_handle(u16 step) {
         }
     }
 
+
 }
 
 static void cfg_increase_handle(u16 step){
@@ -178,7 +195,8 @@ static void cfg_increase_handle(u16 step){
         mo_msg_cancel_all(&main_tsk.tsk,USR_CFG_TIMEOUT_HANDLE);
         mo_msg_send(&main_tsk.tsk,USR_CFG_TIMEOUT_HANDLE,NULL,5000);
     }
-
+     mo_msg_cancel_all(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE);
+    mo_msg_send(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE,NULL,3000);
 }
 
 static void cfg_decrease_handle(u16 step){
@@ -195,6 +213,8 @@ static void cfg_decrease_handle(u16 step){
         mo_msg_send(&main_tsk.tsk,USR_CFG_TIMEOUT_HANDLE,NULL,5000);
     }
     
+    mo_msg_cancel_all(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE);
+    mo_msg_send(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE,NULL,3000);
 }
 
 static void togle_power_out_handle(void){
@@ -216,7 +236,6 @@ static void togle_power_out_handle(void){
     //     mo_msg_cancel_all(get_usr_main_task(),USR_UPDATE_CFG_VOLTAGE_TO_IC);
     //     mo_msg_send(get_usr_main_task(),USR_UPDATE_CFG_VOLTAGE_TO_IC,NULL,25);
     // }
-
 }
 
 static void set_power_out_handle(OUT_CTRL_T en,MO_EVENTS_T notify_ev){
@@ -257,6 +276,7 @@ static void key_event_handle(mo_key_event_msg_t *k_event){
                 // mo_msg_send(get_usr_display_task(),USR_LCD_MEASURE_VOL_TOGGLE,0,0);
             }else if(k_event->vk_patt == BTN_MULTI_CLICK && k_event->click_num == 5){
                 // mo_msg_send(get_usr_display_task(),USR_LCD_TOGGLE_WEIXIN_MINI_PROGRAM_ICON,0,0);
+                mo_msg_send(&main_tsk.tsk,USR_OUT_V_CALIBRATION,NULL,0);
             }
             break;
         
@@ -393,15 +413,20 @@ static void uart_rx_msg_handle(mo_u8 *p_dat){
  */
 u8 vout_up=0;
 
-static void set_out_voltage(mo_s32 vol){
+static void set_out_voltage(mo_u16 vol){
 
     mo_u32 pwm_duty_cycle;
-    mo_u32 vout_max=VOUT_MIMDU_SET;
+    mo_u32 vout_max=main_tsk.cfg_dat.l_vmax_set;
     mo_u8 fb_ctl=0;
     mo_u32 wait_pwm=0;
 
-    if(vol > VOUT_MIMDU_SET){
-        vout_max = VOUT_MAX_SET;
+    if(vol > main_tsk.cfg_dat.l_vmax_set){
+        
+        if(vol >= HEIGHT_CALIBRATION_VOL){
+            vout_max = main_tsk.cfg_dat.h_vmax_set;
+        }else{
+            vout_max = main_tsk.cfg_dat.m_vmax_set;
+        }
         if(vout_up==0){
             vout_up = 1;
             wait_pwm=1;
@@ -425,15 +450,215 @@ static void set_out_voltage(mo_s32 vol){
     gpio_bits_write(GPIOA,GPIO_PINS_4,fb_ctl);
     
 
+
 }
 
 // static void set_out_voltage(uint16_t duty)
-static void set_out_current(mo_s32 curr){
+static void set_out_current(mo_u16 curr){
 
     /*ILIMx=ILIMx_SET×D*/
    mo_u32 pwm_duty_cycle = (curr*PWM_MAX)/I_SET_MAX;
    tmr_channel_value_set(TMR15, TMR_SELECT_CHANNEL_2, pwm_duty_cycle);  
    USR_DBG_DBUG("curr:%d,pwm:%d\r\n",curr,pwm_duty_cycle);
+}
+
+#define CAL_TOLERANCE 13u// tolerance
+static int out_voltage_calibration_handle(void){
+    CfigDatsT cfg_datas;
+    int ret=-1;
+    int flash_w=0;
+    int vbus_vol;
+    int try_cnt=L_CAL_TRY_TIMES;
+    CfigDatsT *cdat;
+    mo_u16 l_vmax_set = main_tsk.cfg_dat.l_vmax_set;
+    mo_u16 h_vmax_set = main_tsk.cfg_dat.h_vmax_set;
+    mo_u16 m_vmax_set = main_tsk.cfg_dat.m_vmax_set;
+    mo_u16 h_t;
+    // usr_flash_write(TEST_FLASH_ADDRESS_START,&main_tsk.cfg_dat,sizeof(main_tsk.cfg_dat)/sizeof(mo_u16));
+    // flash_read(TEST_FLASH_ADDRESS_START,&cfg_datas,sizeof(cfg_datas)/sizeof(mo_u16));
+    // OUT_CTRL(0);
+    // MO_DELAY_TICK(100);
+    // set_out_voltage(LOW_CALIBRATION_VOL);
+    // MO_DELAY_TICK(100);
+
+    /**low fild voltage calibration handle */
+    OUT_CTRL_T *sync_out_ctrl;
+
+    main_tsk.out_ctrl=1;
+    OUT_CTRL(main_tsk.out_ctrl);
+    // sync_out_ctrl = (OUT_CTRL_T*)mo_malloc(sizeof(OUT_CTRL_T));
+    // if(sync_out_ctrl){
+    //     *sync_out_ctrl = main_tsk.out_ctrl;
+    //     mo_msg_send(get_usr_display_task(),USR_LCD_POWER_OUT_UI_UPDATE,sync_out_ctrl,0);
+    // }
+    
+    while(try_cnt--){
+        set_out_voltage(LOW_CALIBRATION_VOL);
+        MO_DELAY_TICK(200);
+        if(ina226_read_bus_voltage(ina226_OUTPUT_I2C_DEV_ADD,ina226_CH1_BUS_V_REG,&vbus_vol)==0){
+            h_t = LOW_CALIBRATION_VOL+CAL_TOLERANCE;
+            if(vbus_vol < (h_t) && vbus_vol > (LOW_CALIBRATION_VOL)){
+                ret = 0;
+                break;
+            }else{
+                if(vbus_vol > h_t){
+                    main_tsk.cfg_dat.l_vmax_set += LOW_CAL_STEP;
+                }else{
+                    main_tsk.cfg_dat.l_vmax_set -= LOW_CAL_STEP; 
+                }
+            }
+        }else{
+            break;
+        }
+    }
+
+    if(ret != -1){
+        flash_w=1;
+        USR_DBG_INFO("l_vmax_set succeffull\r\n");
+        ret = -1;
+    }else{
+        main_tsk.cfg_dat.l_vmax_set = l_vmax_set;
+        USR_DBG_INFO("l_vmax_set failed\r\n");
+    }
+/*******************************middle field voltage calibration handle *************************************/
+    // OUT_CTRL(0);
+    // MO_DELAY_TICK(100);
+    // set_out_voltage(MIDDLE_CALIBRATION_VOL);
+    // MO_DELAY_TICK(50);
+    // OUT_CTRL(1);
+    try_cnt = H_CAL_TRY_TIMES;
+     while(try_cnt--){
+        set_out_voltage(MIDDLE_CALIBRATION_VOL);
+        MO_DELAY_TICK(200);
+        if(ina226_read_bus_voltage(ina226_OUTPUT_I2C_DEV_ADD,ina226_CH1_BUS_V_REG,&vbus_vol)==0){
+            h_t = MIDDLE_CALIBRATION_VOL+20+10;
+            if(vbus_vol < (h_t) && vbus_vol > (MIDDLE_CALIBRATION_VOL+20)){
+                ret=0;
+                break;
+            }else{
+                if(vbus_vol > h_t){
+                    main_tsk.cfg_dat.m_vmax_set += MIDDLE_CAL_STEP;
+                }else{
+                    main_tsk.cfg_dat.m_vmax_set -= MIDDLE_CAL_STEP; 
+                }
+            }
+        }else{
+            break;
+        }
+    }
+    // OUT_CTRL(main_tsk.out_ctrl);
+    if(ret != -1){
+        flash_w=1;
+        USR_DBG_INFO("m_vmax_set succeffull\r\n");
+    }else{
+        main_tsk.cfg_dat.m_vmax_set = m_vmax_set;
+        USR_DBG_INFO("m_vmax_set failed\r\n");
+    }
+
+    /*******************************height field voltage calibration handle *************************************/
+    // OUT_CTRL(0);
+    // MO_DELAY_TICK(100);
+    // set_out_voltage(HEIGHT_CALIBRATION_VOL);
+    // MO_DELAY_TICK(50);
+    // OUT_CTRL(1);
+
+    try_cnt = H_CAL_TRY_TIMES;
+    main_tsk.cfg_dat.out_vol=HEIGHT_CALIBRATION_VOL;
+     while(try_cnt--){
+        set_out_voltage(HEIGHT_CALIBRATION_VOL);
+        MO_DELAY_TICK(500);
+        if(ina226_read_bus_voltage(ina226_OUTPUT_I2C_DEV_ADD,ina226_CH1_BUS_V_REG,&vbus_vol)==0){
+            h_t = HEIGHT_CALIBRATION_VOL+75+10;
+            if(vbus_vol < (h_t) && vbus_vol > (HEIGHT_CALIBRATION_VOL+75)){
+                ret=0;
+                break;
+            }else{
+                if(vbus_vol > h_t){
+                    main_tsk.cfg_dat.h_vmax_set += HEIGHT_CAL_STEP;
+                }else{
+                    main_tsk.cfg_dat.h_vmax_set -= HEIGHT_CAL_STEP; 
+                }
+            }
+        }else{
+            break;
+        }
+    }
+    // OUT_CTRL(main_tsk.out_ctrl);
+    if(ret != -1){
+        flash_w=1;
+        USR_DBG_INFO("h_vmax_set succeffull\r\n");
+    }else{
+        main_tsk.cfg_dat.h_vmax_set = h_vmax_set;
+        USR_DBG_INFO("h_vmax_set failed\r\n");
+    }
+
+    
+    main_tsk.out_ctrl=0;
+    OUT_CTRL(main_tsk.out_ctrl);
+    sync_out_ctrl = (OUT_CTRL_T*)mo_malloc(sizeof(OUT_CTRL_T));
+    if(sync_out_ctrl){
+        *sync_out_ctrl = main_tsk.out_ctrl;
+        mo_msg_send(get_usr_display_task(),USR_LCD_POWER_OUT_UI_UPDATE,sync_out_ctrl,0);
+    }
+
+    if(flash_w)usr_save_cfg_data_to_flash();
+
+    cdat = (CfigDatsT*)mo_malloc(sizeof(CfigDatsT));
+
+    if(cdat){
+        *cdat = main_tsk.cfg_dat;
+        mo_msg_send(get_usr_display_task(),USR_LCD_UPDATE_OUT_CFG_DAT,cdat,0);
+    }
+
+    return ret;
+
+}
+
+
+static void usr_save_cfg_data_to_flash(void){
+    CfigDatsT cfg_datas;
+    usr_flash_write(TEST_FLASH_ADDRESS_START,&main_tsk.cfg_dat,sizeof(main_tsk.cfg_dat)/sizeof(mo_u16));
+    // flash_read(TEST_FLASH_ADDRESS_START,&cfg_datas,sizeof(cfg_datas)/sizeof(mo_u16));
+    USR_DBG_INFO("h_vmax_set:%d \r\n m_vmax_set:%d\r\n l_vmax_set:%d\r\n limit_curr:%d\r\n out_vol:%d\r\n",\
+        main_tsk.cfg_dat.h_vmax_set,main_tsk.cfg_dat.m_vmax_set,main_tsk.cfg_dat.l_vmax_set,main_tsk.cfg_dat.limit_curr,main_tsk.cfg_dat.out_vol
+    );
+}
+
+
+
+static void usr_cfg_dat_init(void){
+
+    CfigDatsT cfg_datas;
+
+    flash_read(TEST_FLASH_ADDRESS_START,&cfg_datas,sizeof(cfg_datas)/sizeof(mo_u16));
+    main_tsk.cfg_dat = cfg_datas;
+
+    if(main_tsk.cfg_dat.h_vmax_set > (VOUT_MAX_SET+2000) || \
+        main_tsk.cfg_dat.h_vmax_set < (VOUT_MAX_SET-2000)){
+
+        main_tsk.cfg_dat.h_vmax_set = VOUT_MAX_SET;    //default value
+    }
+
+    if(main_tsk.cfg_dat.m_vmax_set > (VOUT_MAX_SET+2000) || \
+        main_tsk.cfg_dat.m_vmax_set < (VOUT_MAX_SET-2000)){
+
+        main_tsk.cfg_dat.m_vmax_set = VOUT_MAX_SET;    //default value
+    }
+    if(main_tsk.cfg_dat.l_vmax_set >(VOUT_MIMDU_SET+2000) || \
+        main_tsk.cfg_dat.l_vmax_set < (VOUT_MIMDU_SET-2000)){
+
+        main_tsk.cfg_dat.l_vmax_set = VOUT_MIMDU_SET;    //default value
+    }
+
+    if(main_tsk.cfg_dat.limit_curr > OC_MAX || main_tsk.cfg_dat.limit_curr < OC_MIN){
+        main_tsk.cfg_dat.limit_curr = DEFAULT_OC_LIMIT; //default value
+    }
+
+    if(main_tsk.cfg_dat.out_vol > VOUT_MAX || main_tsk.cfg_dat.out_vol < VOUT_MIN){
+        main_tsk.cfg_dat.out_vol = DEFAULT_OC_LIMIT; //default value
+    }
+
+
 }
 
 static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
@@ -539,6 +764,7 @@ static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
                 
             }else{
                 //mo_msg_cancel_all(tsk,USR_UPDATE_CFG_VOLTAGE_TO_IC);
+                main_tsk.app_set_flg=0;
             }
             mo_msg_cancel_all(tsk,USR_UPDATE_CFG_VOLTAGE_TO_IC);
             mo_msg_send(tsk,USR_UPDATE_CFG_VOLTAGE_TO_IC,NULL,20);
@@ -572,6 +798,13 @@ static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
         case USR_DEC_1000_MSG:
             cfg_decrease_handle(1000);
             break;
+        case USR_OUT_V_CALIBRATION:
+            out_voltage_calibration_handle();
+            break;
+
+        case USR_SAVE_CFG_DAT_TO_FLASHE:
+            usr_save_cfg_data_to_flash();
+            break;
         default:
             break;
     }
@@ -587,8 +820,8 @@ void usr_main_app_task_init(void){
 
     memset(&main_tsk,0,sizeof(main_tsk));
     main_tsk.tsk.handler = main_task_handle;
-    main_tsk.cfg_dat.limit_curr = DEFAULT_OC_LIMIT;
-    main_tsk.cfg_dat.out_vol = DEFAULT_O_VOL;
+
+    usr_cfg_dat_init();
 
     main_tsk.curr_set = main_tsk.cfg_dat;
 
@@ -598,8 +831,9 @@ void usr_main_app_task_init(void){
     mo_msg_send(&main_tsk.tsk,USR_EVENT_TEST_POLLING,NULL,70);
 
     // gpio_bits_set(GPIOA, GPIO_PINS_6);
-    set_out_current(DEFAULT_OC_LIMIT);
-    set_out_voltage(DEFAULT_O_VOL);
+    set_out_current(main_tsk.cfg_dat.limit_curr);
+    set_out_voltage(main_tsk.cfg_dat.out_vol);
+
     mo_msg_send(&main_tsk.tsk,USR_EVENT_DELAY_TO_INIT,NULL,60);
     
 }

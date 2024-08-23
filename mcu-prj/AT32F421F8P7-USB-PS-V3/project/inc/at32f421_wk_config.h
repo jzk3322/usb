@@ -35,9 +35,9 @@ extern "C" {
 /* includes -----------------------------------------------------------------------*/
 #include "at32f421.h"
 
-#define VOUT_MAX_SET    34442ul /*mV*/
+#define VOUT_MAX_SET    34590ul /*mV*/
 // #define VOUT_MIMDU_SET  10257ul /*mV*/
-#define VOUT_MIMDU_SET  10186ul /*mV*/
+#define VOUT_MIMDU_SET  10286ul /*mV*/
 #define PWM_MAX     1400ul 
 #define I_SET_MAX   8067ul /*mA*/
 
