@@ -122,7 +122,7 @@ void usr_input_tsk_handle(mo_task tsk, mo_msg_id m_id, mo_msg msg) {
 
                 input_task.step_dec_size = REC_STEP_1000;
                 // USR_DBG_INFO("-\r\n");
-                //   USR_DBG_INFO("OUT_CTRL:%d\r\n",main_tsk.out_ctrl);
+                
             }
             break;    
 

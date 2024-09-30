@@ -213,7 +213,12 @@ void PendSV_Handler(void)
  * @retval none
  */
 extern void mo_tick_inc(void);
-void SysTick_Handler(void) { mo_tick_inc(); }
+extern void out_vol_pudate_handle(void);
+
+void SysTick_Handler(void) { 
+    mo_tick_inc(); 
+    out_vol_pudate_handle();
+}
 
 /**
  * @brief  this function handles EXINT Line 1 & 0 handler.

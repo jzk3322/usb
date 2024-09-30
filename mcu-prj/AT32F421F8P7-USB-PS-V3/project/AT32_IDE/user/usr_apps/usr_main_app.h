@@ -23,14 +23,13 @@ extern "C" {
 #include "mo_msg.h"
 #include "usr_input_task.h"
 
-#define USB_PS_SW_VER  "V1.2"
 
 #define VOUT_MAX         34000ul /*mV*/
 #define VOUT_MIN         2000ul  /*mV*/
 #define DEFAULT_O_VOL    3300ul  /*mV*/
 #define DEFAULT_OC_LIMIT 8000ul  /*mA*/
 #define OC_MAX           8000ul  /*mA*/
-#define OC_MIN           500ul   /*mA*/
+#define OC_MIN           10ul   /*mA*/
 
 // #define PD_CFG1_PORT           GPIOA
 // #define PD_CFG2_PORT           GPIOA
@@ -46,9 +45,12 @@ extern "C" {
 //     gpio_bits_write(PD_CFG2_PORT, PD_CGF2_PIN, cfg2);\
 //     gpio_bits_write(PD_CFG3_PORT, PD_CGF3_PIN, cfg3);\
 // }
-#define LOW_CALIBRATION_VOL  6000ul /*5.00V*/
-#define HEIGHT_CALIBRATION_VOL 23000ul /*28.00V*/
-#define MIDDLE_CALIBRATION_VOL 17000ul /*17.00V*/
+#define LOW_CALIBRATION_VOL  3300ul /*5.00V*/
+#define HEIGHT_CALIBRATION_VOL 34000ul /*28.00V*/
+#define MIDDLE_CALIBRATION_VOL 15000UL//17000ul /*17.00V*/
+
+#define OUT_VOL_SW_THRESHOLD    10000ul/*mV*/
+#define OUT_VOL_SW_M_THRESHOLD  20000ul/*mV*/
 
 #define LOW_CAL_STEP     10ul
 #define HEIGHT_CAL_STEP  10ul
@@ -58,9 +60,13 @@ extern "C" {
 #define H_CAL_TRY_TIMES  120ul
 
 
-#define OUT_CTRL_PORT GPIOA
-#define OUT_CTRL_PIN  GPIO_PINS_14
-#define OUT_CTRL(en)  gpio_bits_write(OUT_CTRL_PORT, OUT_CTRL_PIN, (!en))
+#define SC8701_CE_CTRL_PORT GPIOA
+#define SC8701_CE_CTRL_PIN  GPIO_PINS_14
+#define SC8701_CE_CTRL(en)  gpio_bits_write(SC8701_CE_CTRL_PORT, SC8701_CE_CTRL_PIN, (confirm_state)(!en))
+
+#define MOS_CTL_PORT GPIOA
+#define MOS_CTL_PIN  GPIO_PINS_4
+#define MOS_CTL(en)   gpio_bits_write(MOS_CTL_PORT,MOS_CTL_PIN,(confirm_state)!en)
 
 typedef struct monitor_datas_{
     mo_u32 in_vol;
@@ -101,9 +107,12 @@ typedef enum{
 typedef struct config_datas_{
     mo_u16 out_vol;
     mo_u16 limit_curr;/*mA*/
-    mo_u16 h_vmax_set;
-    mo_u16 l_vmax_set;
-    mo_u16 m_vmax_set;
+    // float pb1;
+    // float pb2;
+    mo_s16 out_vol_offset;
+    mo_s16 out_vol_h_offset;
+    mo_s16 out_vol_m_offset;
+    mo_u16 out_dac_value;
 }CfigDatsT;
 
 

@@ -18,6 +18,7 @@ extern "C"{
 #endif
 #include "mo_config.h"
 #include "mcu_button.h"
+#include "usr_debug.h"
 #include "mo_input.h"
 #include "mo_msg.h"
 #include "lcd_init.h"
@@ -49,7 +50,11 @@ extern "C"{
 #define OUT_CTRL_B_X_END (OUT_CTRL_BLOCK_POSSITION_X+OUT_CTRL_B_WIDTH)
 #define OUT_CTRL_B_Y_END (OUT_CTRL_BLOCK_POSSITION_Y+OUT_CTRL_B_HEIGHT)
 
+#if (USR_DBG_PRINT_EN)
+#define EN_UPLOAD_DAT_TO_APP 0
+#else
 #define EN_UPLOAD_DAT_TO_APP 1
+#endif
 
 typedef struct point_t{
     mo_u16 x;

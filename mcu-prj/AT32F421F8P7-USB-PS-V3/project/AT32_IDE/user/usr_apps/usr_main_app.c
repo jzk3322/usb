@@ -14,7 +14,16 @@
 #include "usr_desplay_task.h"
 #include "usr_debug.h"
 #include "usr_flash.h"
+#include "MCP4728.h"
 #include "usr_main_app.h"
+
+#define FB_CTL_DAC_CH         DAC_CH_A
+#define CURR_CTL_DAC_CH       DAC_CH_B
+#define FB_CTL_DAC_CH_INDEX   0
+#define CURR_CTL_DAC_CH_INDEX 1
+
+#define SC8701_OUT_READY  2
+#define SC8701_FIRST_OUT  1 
 
 typedef struct usr_main_app_tsk {
     mo_task_data tsk;
@@ -24,11 +33,13 @@ typedef struct usr_main_app_tsk {
     MonitorDatsT m_dat;
     PD_REQ_VOL_T pd_req_vol;
     OUT_CTRL_T out_ctrl;
-    mo_u8 app_set_flg;
+    mo_u8 sc_8701_en;
+    // mo_u8 app_set_flg;
+    DAC_CFG_D_SET_T dac_cfg_sets[USR_USED_CH_MAX];
 } UsrMainAppTskT;
 
 static UsrMainAppTskT main_tsk;
-static void set_out_voltage(mo_u16 vol);
+static void set_out_voltage(mo_u16 vol,mo_u8 update_flg);
 static void set_out_current(mo_u16 curr);
 static void usr_save_cfg_data_to_flash(void);
 
@@ -40,6 +51,7 @@ CFG_MODE_T main_app_get_cfg_mode(void){
     return main_tsk.cfg_mode;
 }
 
+// #define FB_CTRL_(v) gpio_bits_write(GPIOA,GPIO_PINS_4,v)
 
 static void out_voltage_decrease_handle(u16 step){
     CfigDatsT *cdat;
@@ -62,11 +74,7 @@ static void out_voltage_decrease_handle(u16 step){
             mo_msg_send(get_usr_display_task(),USR_SYNC_OVOL_TO_HOST,cdat,0);
         }
 
-        if(!main_tsk.out_ctrl || main_tsk.app_set_flg==0){
-            set_out_voltage(main_tsk.cfg_dat.out_vol); 
-            main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
-        }
-        
+        set_out_voltage(main_tsk.cfg_dat.out_vol,0);
     }
 }
 
@@ -89,11 +97,7 @@ static void out_voltage_increase_handle(u16 step) {
             mo_msg_send(get_usr_display_task(),USR_SYNC_OVOL_TO_HOST,cdat,0);
         }
 
-        if(!main_tsk.out_ctrl || main_tsk.app_set_flg==0){
-            set_out_voltage(main_tsk.cfg_dat.out_vol); 
-            main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
-        }
-
+        set_out_voltage(main_tsk.cfg_dat.out_vol,0);
     }
 
 }
@@ -111,16 +115,13 @@ static void out_voltage_set_handle(mo_u32 ovl) {
         mo_msg_send(get_usr_display_task(),USR_LCD_UPDATE_OUT_CFG_DAT,cdat,0);
     }
 
-    if(!main_tsk.out_ctrl){
-        set_out_voltage(main_tsk.cfg_dat.out_vol); 
-        main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
-    }else{
-        main_tsk.app_set_flg=1;
-    }
+    set_out_voltage(main_tsk.cfg_dat.out_vol,0);
     
     mo_msg_cancel_all(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE);
     mo_msg_send(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE,NULL,3000);
 }
+
+
 static void out_current_set_handle(mo_u32 curr) {
     CfigDatsT *cdat;
 
@@ -134,8 +135,7 @@ static void out_current_set_handle(mo_u32 curr) {
         mo_msg_send(get_usr_display_task(),USR_LCD_UPDATE_OUT_CFG_DAT,cdat,0);
     }
 
-    //  set_out_voltage(main_tsk.cfg_dat.out_vol); 
-    //  main_tsk.curr_set.out_vol = main_tsk.cfg_dat.out_vol;
+    set_out_current(main_tsk.cfg_dat.limit_curr);
     mo_msg_cancel_all(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE);
     mo_msg_send(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE,NULL,3000);
     
@@ -187,7 +187,7 @@ static void cfg_increase_handle(u16 step){
     if(main_tsk.cfg_mode == VOL_CFG_M){
         out_voltage_increase_handle(step);
     }else if(main_tsk.cfg_mode == CURR_CFG_M){
-        out_limit_curr_increase_handle(step);
+        out_limit_curr_increase_handle(step/10);
     }else{
     }
 
@@ -217,12 +217,18 @@ static void cfg_decrease_handle(u16 step){
     mo_msg_send(&main_tsk.tsk,USR_SAVE_CFG_DAT_TO_FLASHE,NULL,3000);
 }
 
+static void power_out_set(OUT_CTRL_T out_ctrl){
+    MOS_CTL(out_ctrl);
+}
+
 static void togle_power_out_handle(void){
-
+    #define NEED_SLOW_INC_VOL 10000ul
     OUT_CTRL_T *sync_out_ctrl=NULL;
-    main_tsk.out_ctrl = !main_tsk.out_ctrl;
-    OUT_CTRL(main_tsk.out_ctrl);
 
+    if(main_tsk.sc_8701_en != SC8701_OUT_READY)return;
+
+    main_tsk.out_ctrl = !main_tsk.out_ctrl;
+    power_out_set(main_tsk.out_ctrl);
     USR_DBG_INFO("OUT_CTRL:%d\r\n",main_tsk.out_ctrl);
 
     sync_out_ctrl = (OUT_CTRL_T*)mo_malloc(sizeof(OUT_CTRL_T));
@@ -230,19 +236,14 @@ static void togle_power_out_handle(void){
         *sync_out_ctrl = main_tsk.out_ctrl;
         mo_msg_send(get_usr_display_task(),USR_LCD_POWER_OUT_UI_UPDATE,sync_out_ctrl,0);
     }
-    // if(main_tsk.out_ctrl){
-    //     set_out_voltage(DEFAULT_O_VOL);
-    //     main_tsk.curr_set.out_vol = DEFAULT_O_VOL;
-    //     mo_msg_cancel_all(get_usr_main_task(),USR_UPDATE_CFG_VOLTAGE_TO_IC);
-    //     mo_msg_send(get_usr_main_task(),USR_UPDATE_CFG_VOLTAGE_TO_IC,NULL,25);
-    // }
+
 }
 
 static void set_power_out_handle(OUT_CTRL_T en,MO_EVENTS_T notify_ev){
 
     OUT_CTRL_T *sync_out_ctrl=NULL;
     main_tsk.out_ctrl = en;
-    OUT_CTRL(main_tsk.out_ctrl);
+    power_out_set(main_tsk.out_ctrl);
 
     sync_out_ctrl = (OUT_CTRL_T*)mo_malloc(sizeof(OUT_CTRL_T));
     if(sync_out_ctrl){
@@ -360,10 +361,7 @@ static void uart_rx_msg_handle(mo_u8 *p_dat){
     mo_u8 *p_cmd_end;
     mo_u8 *p_dat_end;
     
-    // MO_LOG("rec,%s\r\n",p_dat);
-
     while (max_cmd--){
-
         p_cmd_end = (strpbrk(p_in_dat, "="));
         if(p_cmd_end==NULL)break;
         p_dat_end = (strpbrk(p_in_dat, "@"));
@@ -385,7 +383,6 @@ static void uart_rx_msg_handle(mo_u8 *p_dat){
             // }
         }else if(strcmp("o_cfg",buf)==0){
             mo_s32 int_dat;
-            // MO_LOG("dat:%s\r\n",dat_buf);
            if(str_vol_to_s32(dat_buf,&int_dat) != -1) {
                 out_voltage_set_handle(int_dat);
            }
@@ -395,14 +392,10 @@ static void uart_rx_msg_handle(mo_u8 *p_dat){
             set_power_out_handle((OUT_CTRL_T) (dat_buf[0]-'0'),USR_LCD_POWER_OUT_UI_UPDATE_BY_APP);
         }
         else{
-        //    MO_LOG("not support this cmd:%s,%s\r\n",buf,dat_buf); 
         }
-        
         p_in_dat = (p_dat_end+1);
-        if(*p_in_dat=='\n')break;
-        
+        if(*p_in_dat=='\n')break; 
     }
-    
 }
 
 /**
@@ -413,196 +406,118 @@ static void uart_rx_msg_handle(mo_u8 *p_dat){
  */
 u8 vout_up=0;
 
-static void set_out_voltage(mo_u16 vol){
+#define SC8701_Vref 1220ul /*1.22V*/
+#define Pb1_ 0.02963465f
+// #define Pb1_ 0.029f
+#define Pb2_ 0.56989711f
+// #define Pb2_ 0.5781f
 
-    mo_u32 pwm_duty_cycle;
-    mo_u32 vout_max=main_tsk.cfg_dat.l_vmax_set;
-    mo_u8 fb_ctl=0;
-    mo_u32 wait_pwm=0;
-
-    if(vol > main_tsk.cfg_dat.l_vmax_set){
-        
-        if(vol >= HEIGHT_CALIBRATION_VOL){
-            vout_max = main_tsk.cfg_dat.h_vmax_set;
-        }else{
-            vout_max = main_tsk.cfg_dat.m_vmax_set;
-        }
-        if(vout_up==0){
-            vout_up = 1;
-            wait_pwm=1;
-        }
-        fb_ctl= 1;
-    }else if(vout_up){
-        vout_up=0;
-    }
-    pwm_duty_cycle = ((vol*6*PWM_MAX)/vout_max-PWM_MAX)/5;
-
-    USR_DBG_DBUG("V:%d,pwm:%d \r\n",vol,pwm_duty_cycle); 
+static void set_out_voltage(mo_u16 vol,mo_u8 update_flg){
+    mo_u32 m_voltage,tmp;
     
-    tmr_channel_value_set(TMR3, TMR_SELECT_CHANNEL_4, pwm_duty_cycle); 
-    if(wait_pwm){
-        // while (wait_pwm)
-        // {wait_pwm--;}
-        MO_DELAY_TICK(2);
+    if(vol <= OUT_VOL_SW_THRESHOLD){
+        vol+=main_tsk.cfg_dat.out_vol_offset;
+    }else if(vol <= OUT_VOL_SW_M_THRESHOLD){
+        vol+=main_tsk.cfg_dat.out_vol_m_offset;
+    }else{
+        vol+=main_tsk.cfg_dat.out_vol_h_offset;
     }
     
-    
-    gpio_bits_write(GPIOA,GPIO_PINS_4,fb_ctl);
-    
 
+    m_voltage = (SC8701_Vref-vol*Pb1_)/Pb2_;
+    tmp = m_voltage;
+    
+    m_voltage=m_voltage*(DAC_RESOLUTION/INTERNAL_VREF);
+    main_tsk.cfg_dat.out_dac_value = m_voltage;
+    main_tsk.dac_cfg_sets[FB_CTL_DAC_CH_INDEX].dac_value=m_voltage;
+
+    USR_DBG_DBUG("Vol:%f,%x",tmp,m_voltage);
+
+    if(update_flg){
+        main_tsk.curr_set.out_dac_value = main_tsk.cfg_dat.out_dac_value;
+        mcp4728_multi_write_only_reg(main_tsk.dac_cfg_sets,USR_USED_CH_MAX);
+    }
 
 }
 
-// static void set_out_voltage(uint16_t duty)
 static void set_out_current(mo_u16 curr){
 
-    /*ILIMx=ILIMx_SET×D*/
-   mo_u32 pwm_duty_cycle = (curr*PWM_MAX)/I_SET_MAX;
-   tmr_channel_value_set(TMR15, TMR_SELECT_CHANNEL_2, pwm_duty_cycle);  
-   USR_DBG_DBUG("curr:%d,pwm:%d\r\n",curr,pwm_duty_cycle);
+    mo_u32 m_voltage;
+    //  mo_u32 int_flg=mo_critical_enter();
+
+    /** V=R*I R=0.01R ,here the gain of the curr. amp is 20 */
+    m_voltage = (curr*0.01f*20);
+    m_voltage=m_voltage*(DAC_RESOLUTION/INTERNAL_VREF);
+    main_tsk.dac_cfg_sets[CURR_CTL_DAC_CH_INDEX].dac_value=m_voltage;
+    mcp4728_multi_write_only_reg(main_tsk.dac_cfg_sets,USR_USED_CH_MAX);
+
+    // mo_critical_exit(int_flg);
 }
 
-#define CAL_TOLERANCE 13u// tolerance
+#define CAL_TOLERANCE 10u// tolerance
+#define CHANGE_STEP 5ul
+
 static int out_voltage_calibration_handle(void){
     CfigDatsT cfg_datas;
+    mo_s16 *offset;
+    mo_u16 out_vol;
     int ret=-1;
-    int flash_w=0;
-    int vbus_vol;
-    int try_cnt=L_CAL_TRY_TIMES;
+    int timeout;
+    int vbus_vol,h_t;
+    
+    main_tsk.cfg_dat.out_vol_offset=0;
+    main_tsk.cfg_dat.out_vol_h_offset=0;
+    main_tsk.cfg_dat.out_vol_m_offset=0;
+
+    offset = &main_tsk.cfg_dat.out_vol_offset;
+    out_vol = LOW_CALIBRATION_VOL;
+    for(int i=0; i<3; i++){
+        main_tsk.cfg_dat.out_vol = out_vol;
+
+        set_out_voltage(out_vol,0);
+        MO_DELAY_TICK(2000);
+        power_out_set(OUT_CTRL_ENABLE);
+        timeout=400;
+        while (timeout){
+
+            set_out_voltage(out_vol,1);
+            MO_DELAY_TICK(50);
+            timeout--;
+
+            if(ina226_read_bus_voltage(ina226_OUTPUT_I2C_DEV_ADD,ina226_CH1_BUS_V_REG,&vbus_vol)==0){
+                h_t = out_vol+CAL_TOLERANCE;
+                if(vbus_vol < (h_t+CAL_TOLERANCE) && vbus_vol > (h_t)){
+                    ret = 0;
+                    break;
+                }else{
+                    if(vbus_vol > h_t){
+                        (*offset) -= CHANGE_STEP;
+                    }else{
+                        (*offset) += CHANGE_STEP;
+                    }
+                }
+            }else{
+                break;
+            }
+        }
+        if(i==0){
+            offset = &main_tsk.cfg_dat.out_vol_h_offset;
+            out_vol = HEIGHT_CALIBRATION_VOL;
+        }else{
+            offset = &main_tsk.cfg_dat.out_vol_m_offset;
+            out_vol = MIDDLE_CALIBRATION_VOL;
+        }
+        
+       
+    }
+    
+    main_tsk.cfg_dat.out_vol = 3300ul;
+
+    set_out_voltage(main_tsk.cfg_dat.out_vol,0);
+    if(timeout){
+        usr_save_cfg_data_to_flash();
+    }
     CfigDatsT *cdat;
-    mo_u16 l_vmax_set = main_tsk.cfg_dat.l_vmax_set;
-    mo_u16 h_vmax_set = main_tsk.cfg_dat.h_vmax_set;
-    mo_u16 m_vmax_set = main_tsk.cfg_dat.m_vmax_set;
-    mo_u16 h_t;
-    // usr_flash_write(TEST_FLASH_ADDRESS_START,&main_tsk.cfg_dat,sizeof(main_tsk.cfg_dat)/sizeof(mo_u16));
-    // flash_read(TEST_FLASH_ADDRESS_START,&cfg_datas,sizeof(cfg_datas)/sizeof(mo_u16));
-    // OUT_CTRL(0);
-    // MO_DELAY_TICK(100);
-    // set_out_voltage(LOW_CALIBRATION_VOL);
-    // MO_DELAY_TICK(100);
-
-    /**low fild voltage calibration handle */
-    OUT_CTRL_T *sync_out_ctrl;
-
-    main_tsk.out_ctrl=1;
-    OUT_CTRL(main_tsk.out_ctrl);
-    // sync_out_ctrl = (OUT_CTRL_T*)mo_malloc(sizeof(OUT_CTRL_T));
-    // if(sync_out_ctrl){
-    //     *sync_out_ctrl = main_tsk.out_ctrl;
-    //     mo_msg_send(get_usr_display_task(),USR_LCD_POWER_OUT_UI_UPDATE,sync_out_ctrl,0);
-    // }
-    
-    while(try_cnt--){
-        set_out_voltage(LOW_CALIBRATION_VOL);
-        MO_DELAY_TICK(200);
-        if(ina226_read_bus_voltage(ina226_OUTPUT_I2C_DEV_ADD,ina226_CH1_BUS_V_REG,&vbus_vol)==0){
-            h_t = LOW_CALIBRATION_VOL+CAL_TOLERANCE;
-            if(vbus_vol < (h_t) && vbus_vol > (LOW_CALIBRATION_VOL)){
-                ret = 0;
-                break;
-            }else{
-                if(vbus_vol > h_t){
-                    main_tsk.cfg_dat.l_vmax_set += LOW_CAL_STEP;
-                }else{
-                    main_tsk.cfg_dat.l_vmax_set -= LOW_CAL_STEP; 
-                }
-            }
-        }else{
-            break;
-        }
-    }
-
-    if(ret != -1){
-        flash_w=1;
-        USR_DBG_INFO("l_vmax_set succeffull\r\n");
-        ret = -1;
-    }else{
-        main_tsk.cfg_dat.l_vmax_set = l_vmax_set;
-        USR_DBG_INFO("l_vmax_set failed\r\n");
-    }
-/*******************************middle field voltage calibration handle *************************************/
-    // OUT_CTRL(0);
-    // MO_DELAY_TICK(100);
-    // set_out_voltage(MIDDLE_CALIBRATION_VOL);
-    // MO_DELAY_TICK(50);
-    // OUT_CTRL(1);
-    try_cnt = H_CAL_TRY_TIMES;
-     while(try_cnt--){
-        set_out_voltage(MIDDLE_CALIBRATION_VOL);
-        MO_DELAY_TICK(200);
-        if(ina226_read_bus_voltage(ina226_OUTPUT_I2C_DEV_ADD,ina226_CH1_BUS_V_REG,&vbus_vol)==0){
-            h_t = MIDDLE_CALIBRATION_VOL+20+10;
-            if(vbus_vol < (h_t) && vbus_vol > (MIDDLE_CALIBRATION_VOL+20)){
-                ret=0;
-                break;
-            }else{
-                if(vbus_vol > h_t){
-                    main_tsk.cfg_dat.m_vmax_set += MIDDLE_CAL_STEP;
-                }else{
-                    main_tsk.cfg_dat.m_vmax_set -= MIDDLE_CAL_STEP; 
-                }
-            }
-        }else{
-            break;
-        }
-    }
-    // OUT_CTRL(main_tsk.out_ctrl);
-    if(ret != -1){
-        flash_w=1;
-        USR_DBG_INFO("m_vmax_set succeffull\r\n");
-    }else{
-        main_tsk.cfg_dat.m_vmax_set = m_vmax_set;
-        USR_DBG_INFO("m_vmax_set failed\r\n");
-    }
-
-    /*******************************height field voltage calibration handle *************************************/
-    // OUT_CTRL(0);
-    // MO_DELAY_TICK(100);
-    // set_out_voltage(HEIGHT_CALIBRATION_VOL);
-    // MO_DELAY_TICK(50);
-    // OUT_CTRL(1);
-
-    try_cnt = H_CAL_TRY_TIMES;
-    main_tsk.cfg_dat.out_vol=HEIGHT_CALIBRATION_VOL;
-     while(try_cnt--){
-        set_out_voltage(HEIGHT_CALIBRATION_VOL);
-        MO_DELAY_TICK(500);
-        if(ina226_read_bus_voltage(ina226_OUTPUT_I2C_DEV_ADD,ina226_CH1_BUS_V_REG,&vbus_vol)==0){
-            h_t = HEIGHT_CALIBRATION_VOL+75+10;
-            if(vbus_vol < (h_t) && vbus_vol > (HEIGHT_CALIBRATION_VOL+75)){
-                ret=0;
-                break;
-            }else{
-                if(vbus_vol > h_t){
-                    main_tsk.cfg_dat.h_vmax_set += HEIGHT_CAL_STEP;
-                }else{
-                    main_tsk.cfg_dat.h_vmax_set -= HEIGHT_CAL_STEP; 
-                }
-            }
-        }else{
-            break;
-        }
-    }
-    // OUT_CTRL(main_tsk.out_ctrl);
-    if(ret != -1){
-        flash_w=1;
-        USR_DBG_INFO("h_vmax_set succeffull\r\n");
-    }else{
-        main_tsk.cfg_dat.h_vmax_set = h_vmax_set;
-        USR_DBG_INFO("h_vmax_set failed\r\n");
-    }
-
-    
-    main_tsk.out_ctrl=0;
-    OUT_CTRL(main_tsk.out_ctrl);
-    sync_out_ctrl = (OUT_CTRL_T*)mo_malloc(sizeof(OUT_CTRL_T));
-    if(sync_out_ctrl){
-        *sync_out_ctrl = main_tsk.out_ctrl;
-        mo_msg_send(get_usr_display_task(),USR_LCD_POWER_OUT_UI_UPDATE,sync_out_ctrl,0);
-    }
-
-    if(flash_w)usr_save_cfg_data_to_flash();
-
     cdat = (CfigDatsT*)mo_malloc(sizeof(CfigDatsT));
 
     if(cdat){
@@ -610,6 +525,8 @@ static int out_voltage_calibration_handle(void){
         mo_msg_send(get_usr_display_task(),USR_LCD_UPDATE_OUT_CFG_DAT,cdat,0);
     }
 
+    // power_out_set(OUT_CTRL_DISABLE);
+    set_power_out_handle(OUT_CTRL_DISABLE,USR_LCD_POWER_OUT_UI_UPDATE);
     return ret;
 
 }
@@ -633,21 +550,14 @@ static void usr_cfg_dat_init(void){
     flash_read(TEST_FLASH_ADDRESS_START,&cfg_datas,sizeof(cfg_datas)/sizeof(mo_u16));
     main_tsk.cfg_dat = cfg_datas;
 
-    if(main_tsk.cfg_dat.h_vmax_set > (VOUT_MAX_SET+2000) || \
-        main_tsk.cfg_dat.h_vmax_set < (VOUT_MAX_SET-2000)){
-
-        main_tsk.cfg_dat.h_vmax_set = VOUT_MAX_SET;    //default value
+    if(main_tsk.cfg_dat.out_vol_offset > (2000ul) || \
+        main_tsk.cfg_dat.out_vol_offset < (-2000)){
+        main_tsk.cfg_dat.out_vol_offset = 0;    //default value
     }
 
-    if(main_tsk.cfg_dat.m_vmax_set > (VOUT_MAX_SET+2000) || \
-        main_tsk.cfg_dat.m_vmax_set < (VOUT_MAX_SET-2000)){
-
-        main_tsk.cfg_dat.m_vmax_set = VOUT_MAX_SET;    //default value
-    }
-    if(main_tsk.cfg_dat.l_vmax_set >(VOUT_MIMDU_SET+2000) || \
-        main_tsk.cfg_dat.l_vmax_set < (VOUT_MIMDU_SET-2000)){
-
-        main_tsk.cfg_dat.l_vmax_set = VOUT_MIMDU_SET;    //default value
+    if(main_tsk.cfg_dat.out_vol_h_offset > (2000ul) || \
+        main_tsk.cfg_dat.out_vol_h_offset < (-2000)){
+        main_tsk.cfg_dat.out_vol_h_offset = 0;    //default value
     }
 
     if(main_tsk.cfg_dat.limit_curr > OC_MAX || main_tsk.cfg_dat.limit_curr < OC_MIN){
@@ -655,10 +565,53 @@ static void usr_cfg_dat_init(void){
     }
 
     if(main_tsk.cfg_dat.out_vol > VOUT_MAX || main_tsk.cfg_dat.out_vol < VOUT_MIN){
-        main_tsk.cfg_dat.out_vol = DEFAULT_OC_LIMIT; //default value
+        main_tsk.cfg_dat.out_vol = DEFAULT_O_VOL; //default value
     }
 
 
+    main_tsk.dac_cfg_sets[FB_CTL_DAC_CH_INDEX].dac_ch_id = FB_CTL_DAC_CH;
+    main_tsk.dac_cfg_sets[CURR_CTL_DAC_CH_INDEX].dac_ch_id = CURR_CTL_DAC_CH;
+
+    main_tsk.curr_set = main_tsk.cfg_dat;
+    /*TODO Config the DAC here*/
+    main_tsk.curr_set.out_vol = VOUT_MIN;
+    set_out_voltage(main_tsk.curr_set.out_vol,1);
+    set_out_voltage(main_tsk.cfg_dat.out_vol,0);
+    set_out_current(main_tsk.cfg_dat.limit_curr);
+    
+    /*enable SC8701*/
+    // SC8701_CE_CTRL(1);
+}
+void out_vol_pudate_handle(void){
+    static mo_u8 cnt=0;
+    mo_u8 step=10;
+
+    if(main_tsk.sc_8701_en){
+        cnt++;
+        if(cnt > 4){
+            cnt=0;
+
+            if(main_tsk.sc_8701_en == SC8701_FIRST_OUT){
+                step=5;
+            }
+            
+            if(main_tsk.curr_set.out_dac_value != main_tsk.cfg_dat.out_dac_value){
+                if(main_tsk.curr_set.out_dac_value < main_tsk.cfg_dat.out_dac_value){
+                    main_tsk.curr_set.out_dac_value +=step; /*mV*/
+                    if(main_tsk.curr_set.out_dac_value>main_tsk.cfg_dat.out_dac_value)main_tsk.curr_set.out_dac_value=main_tsk.cfg_dat.out_dac_value;
+                }else{
+                        main_tsk.curr_set.out_dac_value -=step; /*mV*/
+                    if(main_tsk.curr_set.out_dac_value<main_tsk.cfg_dat.out_dac_value)main_tsk.curr_set.out_dac_value=main_tsk.cfg_dat.out_dac_value;
+                }
+                main_tsk.dac_cfg_sets[FB_CTL_DAC_CH_INDEX].dac_value=main_tsk.curr_set.out_dac_value;
+                mcp4728_multi_write_only_reg(main_tsk.dac_cfg_sets,USR_USED_CH_MAX);
+            }else{
+                main_tsk.sc_8701_en = SC8701_OUT_READY;
+            }
+        }
+        
+    }
+    
 }
 
 static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
@@ -723,9 +676,7 @@ static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
                 CfigDatsT *cdat;
                 mo_u8 *p_vol;
                 mo_u8 req_vol;
-                
-//                get_sc8721_init();
-                // ina3221_init();
+
                 ina226_init(ina226_INPUT_I2C_DEV_ADD);
                 ina226_init(ina226_OUTPUT_I2C_DEV_ADD);
                 
@@ -736,39 +687,10 @@ static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
                 }
                 mo_msg_send(tsk,USR_UPDATE_CFG_VOLTAGE_TO_IC,0,0);
 
-                
-                // req_vol = pd_req_vol_inc_handle();
-
-                // p_vol = (mo_u8*)mo_malloc(sizeof(mo_u8));
-                // if(p_vol){
-                //     *p_vol = req_vol;
-                //     mo_msg_send(get_usr_display_task(),USR_LCD_PD_REQ_UI_UPDATE,p_vol,0);
-                // }
-//                sc8721_out_vol_cfg(main_tsk.curr_set.out_vol);
             }
                 break;
 
         case USR_UPDATE_CFG_VOLTAGE_TO_IC:{
-            #if 1
-            if(main_tsk.curr_set.out_vol != main_tsk.cfg_dat.out_vol){
-                if(main_tsk.curr_set.out_vol < main_tsk.cfg_dat.out_vol){
-                    main_tsk.curr_set.out_vol+=100; /*mV*/
-                    if(main_tsk.curr_set.out_vol>main_tsk.cfg_dat.out_vol)main_tsk.curr_set.out_vol=main_tsk.cfg_dat.out_vol;
-                }else{
-                     main_tsk.curr_set.out_vol-=100; /*mV*/
-                    if(main_tsk.curr_set.out_vol<main_tsk.cfg_dat.out_vol)main_tsk.curr_set.out_vol=main_tsk.cfg_dat.out_vol;
-                }
-//                sc8721_out_vol_cfg(main_tsk.curr_set.out_vol);
-              set_out_voltage(main_tsk.curr_set.out_vol);  
-            //   set_out_current(main_tsk.curr_set.out_vol);
-                
-            }else{
-                //mo_msg_cancel_all(tsk,USR_UPDATE_CFG_VOLTAGE_TO_IC);
-                main_tsk.app_set_flg=0;
-            }
-            mo_msg_cancel_all(tsk,USR_UPDATE_CFG_VOLTAGE_TO_IC);
-            mo_msg_send(tsk,USR_UPDATE_CFG_VOLTAGE_TO_IC,NULL,20);
-            #endif
         }
             break;
         case USR_CFG_TIMEOUT_HANDLE:
@@ -805,6 +727,10 @@ static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
         case USR_SAVE_CFG_DAT_TO_FLASHE:
             usr_save_cfg_data_to_flash();
             break;
+        case USR_EVENT_DELAY_TO_EN_SC8701:
+            SC8701_CE_CTRL(1);
+            main_tsk.sc_8701_en = SC8701_FIRST_OUT;
+            break;
         default:
             break;
     }
@@ -823,17 +749,14 @@ void usr_main_app_task_init(void){
 
     usr_cfg_dat_init();
 
-    main_tsk.curr_set = main_tsk.cfg_dat;
-
     main_tsk.pd_req_vol = PD_REQ_9V;
     
-   // mo_msg_cancel_all(&main_tsk.tsk,USR_EVENT_TEST_POLLING);
     mo_msg_send(&main_tsk.tsk,USR_EVENT_TEST_POLLING,NULL,70);
 
-    // gpio_bits_set(GPIOA, GPIO_PINS_6);
     set_out_current(main_tsk.cfg_dat.limit_curr);
-    set_out_voltage(main_tsk.cfg_dat.out_vol);
 
     mo_msg_send(&main_tsk.tsk,USR_EVENT_DELAY_TO_INIT,NULL,60);
+    mo_msg_send(&main_tsk.tsk,USR_EVENT_DELAY_TO_EN_SC8701,NULL,1000);
+    power_out_set(0);
     
 }

@@ -9,7 +9,7 @@
  * 
  */
 
-
+#include "mo_config.h"
 #include "usr_i2c.h"
 
 static i2c_handle_type hi2cx;
@@ -39,8 +39,9 @@ void usr_i2c_init(void){
 
 i2c_status_type usr_i2c_master_transmit(uint16_t address, uint8_t* pdata, uint16_t size, uint32_t timeout){
     i2c_status_type i2c_status;
+    mo_u32 int_flg=mo_critical_enter();
     i2c_status = i2c_master_transmit(&hi2cx, address, pdata, size, timeout);
-
+    mo_critical_exit(int_flg);
     return i2c_status;
 
 }
@@ -48,8 +49,9 @@ i2c_status_type usr_i2c_master_transmit(uint16_t address, uint8_t* pdata, uint16
 
 i2c_status_type usr_i2c_master_receive(uint16_t address, uint8_t* pdata, uint16_t size, uint32_t timeout){
     i2c_status_type i2c_status;
+    mo_u32 int_flg=mo_critical_enter();
     i2c_status = i2c_master_receive(&hi2cx, address, pdata, size, timeout);
-
+    mo_critical_exit(int_flg);
     return i2c_status;
 }
 

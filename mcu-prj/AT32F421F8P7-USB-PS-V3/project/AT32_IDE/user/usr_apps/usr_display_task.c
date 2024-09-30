@@ -519,6 +519,9 @@ static void display_draw_main_ui(void){
 /****************cfg ui**************/
     display_cfg_dat_handle(cfg_dat,CV_DIS_EN,CV_DIS_EN);
 /*****************/
+
+/************Show version***********/
+    LCD_ShowString(290,230,USB_PS_SW_VER,GRAY,DIS_BACKGROUND,12,0);
 }
 
 #endif 

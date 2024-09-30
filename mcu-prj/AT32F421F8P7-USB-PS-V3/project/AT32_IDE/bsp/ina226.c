@@ -100,6 +100,8 @@ int ina226_read_shunt_voltage(u8 dev_addr,u8 shunt_reg,int *p_vol){
     if(i2c_status == I2C_OK){
         int16dat=ina226_convert_dat_to_int16(tmp);
         /*LSB (SD0): 2.5 μV*/
+        if(int16dat<2)int16dat=0;
+        
         *p_vol = int16dat*25;
         ret=0;
     }else{

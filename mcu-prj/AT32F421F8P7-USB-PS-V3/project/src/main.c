@@ -117,6 +117,7 @@ int main(void) {
     /* init usart1 function. */
     wk_usart1_init();
 
+
     /* init spi1 function. */
     wk_spi1_init(SPI_FRAME_8BIT);
 
@@ -129,13 +130,16 @@ int main(void) {
 
     /* init gpio function. */
     wk_gpio_config();
-    OUT_CTRL(0);
+    SC8701_CE_CTRL(0);
 
     /* init tmr3 function. */
     wk_tmr3_init();
 
     /* init tmr15 function. */
     wk_tmr15_init();
+
+    /* init tmr14 function. */
+    wk_tmr14_init();;
 
     /* add user code begin 2 */
 

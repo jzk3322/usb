@@ -43,6 +43,8 @@ typedef unsigned char mo_u8;
 #define MO_VERSION    "V1.0.0"
 #define MO_DEBUG_EN   0
 
+#define USB_PS_SW_VER  "V2.0"
+
 #if MO_DEBUG_EN
 
 #define MO_LOG(format, ...) \

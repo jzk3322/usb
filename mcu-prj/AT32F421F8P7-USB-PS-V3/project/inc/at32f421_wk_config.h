@@ -35,13 +35,23 @@ extern "C" {
 /* includes -----------------------------------------------------------------------*/
 #include "at32f421.h"
 
-#define VOUT_MAX_SET    34590ul /*mV*/
+#define VOUT_MAX_SET    34312ul /*mV*/
 // #define VOUT_MIMDU_SET  10257ul /*mV*/
-#define VOUT_MIMDU_SET  10286ul /*mV*/
+#define VOUT_MIMDU_SET  5846ul /*mV*/
 #define PWM_MAX     1400ul 
+#define VOUT_PWM_MAX     1400ul 
 #define I_SET_MAX   8067ul /*mA*/
-
+#define EN_TMR3__USR 1
 #define USA_DMA_CHANNEL  DMA1_CHANNEL3
+
+#if EN_TMR3__USR
+#define VOUT_CTRL_PWM_TIMER  TMR3
+#define VOUT_CTRL_PWM_CH TMR_SELECT_CHANNEL_4
+#else
+#define VOUT_CTRL_PWM_TIMER  TMR14
+#define VOUT_CTRL_PWM_CH  TMR_SELECT_CHANNEL_1
+#endif
+
 /* private includes -------------------------------------------------------------*/
 /* add user code begin private includes */
 
@@ -83,6 +93,10 @@ extern "C" {
 
   /* init i2c1 function. */
   void wk_i2c1_init(void);
+
+  void wk_tmr14_init(void);
+void wk_tmr15_init(void);
+  void wk_tmr3_init(void);
 
   /* init spi1 function. */
 void wk_spi1_init(spi_frame_bit_num_type w_width);

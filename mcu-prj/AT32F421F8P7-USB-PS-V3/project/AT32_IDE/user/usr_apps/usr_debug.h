@@ -28,6 +28,8 @@ typedef void (*usr_dbg_char_out)(char dat);
 #define USR_DBG_PRINT_EN_DEBUG     0
 #define USR_DBG_PRINT_EN_PRINT_BUF 0
 
+#define USR_DBG_PRINT_EN  (USR_DBG_PRINT_EN_INFOR|USR_DBG_PRINT_EN_ERROR|USR_DBG_PRINT_EN_WARNING|USR_DBG_PRINT_EN_DEBUG|USR_DBG_PRINT_EN_PRINT_BUF)
+
 #if USR_DBG_PRINT_EN_INFOR
 #define USR_DBG_INFO(format, ...) printf(format, ##__VA_ARGS__)
 #else
