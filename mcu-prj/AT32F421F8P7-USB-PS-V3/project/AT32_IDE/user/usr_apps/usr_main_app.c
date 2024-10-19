@@ -576,24 +576,22 @@ static void usr_cfg_dat_init(void){
     /*TODO Config the DAC here*/
     main_tsk.curr_set.out_vol = VOUT_MIN;
     set_out_voltage(main_tsk.curr_set.out_vol,1);
-    set_out_voltage(main_tsk.cfg_dat.out_vol,0);
     set_out_current(main_tsk.cfg_dat.limit_curr);
-    
     /*enable SC8701*/
     // SC8701_CE_CTRL(1);
 }
 void out_vol_pudate_handle(void){
     static mo_u8 cnt=0;
-    mo_u8 step=10;
+    mo_u8 step=13;
 
     if(main_tsk.sc_8701_en){
         cnt++;
         if(cnt > 4){
             cnt=0;
 
-            if(main_tsk.sc_8701_en == SC8701_FIRST_OUT){
-                step=5;
-            }
+            // if(main_tsk.sc_8701_en == SC8701_FIRST_OUT){
+            //     step=10;
+            // }
             
             if(main_tsk.curr_set.out_dac_value != main_tsk.cfg_dat.out_dac_value){
                 if(main_tsk.curr_set.out_dac_value < main_tsk.cfg_dat.out_dac_value){
@@ -730,7 +728,11 @@ static void main_task_handle(mo_task tsk, mo_msg_id msg_id, mo_msg msg) {
         case USR_EVENT_DELAY_TO_EN_SC8701:
             SC8701_CE_CTRL(1);
             main_tsk.sc_8701_en = SC8701_FIRST_OUT;
+            mo_msg_send(tsk,USR_EVENT_POWER_ON_INIT_OUTPUT,0,20);
             break;
+        case USR_EVENT_POWER_ON_INIT_OUTPUT:
+            set_out_voltage(main_tsk.cfg_dat.out_vol,0);
+            break;    
         default:
             break;
     }
