@@ -609,33 +609,113 @@ static CurScaleInforT get_curr_scale_infor_by_input_curr(mo_u32 current){
     
     return ret_infor;
 }
+extern u16 *pBuff;
+extern u8 f_dma_start;
 
+#if 0 //加入小伙伴“音阙诗听”,提高屏幕刷新率的优化部分代码
 static void draw_monitor_run_table_ui(mo_u32 v,mo_u32 c){
+//     mo_u32 i;
+//     mo_u32 str_start_y,str_start_x;
+//     mo_u32 p_des;
+//     mo_u32 y_end;
+//     mo_u32 y_deta_start,y_start;
+//     mo_u32 y_max_point;
+//     mo_u32 dat_index;
+//     VolScaleInforT vol_scale;
+//     CurScaleInforT cur_scale;
+
+//     PointT start_point={.x=TABLE_START_X,.y=TABLE_START_Y};
+//     TableInforT table_inf={.row_distance = ROW_DISTANCE,.row_num=ROW_NUMBER,
+//                             .column_distance=COLUMN_DES,.column_num=COLUMN_NUM};
+
+//     if(dis_tsk.monitor_table_en==0)return;
+
+//     monitor_vol_curr_input(v,c);
+
+//     vol_scale = get_v_scale_infor_by_input_vol(get_max_voltage_by_input_buf());
+//     cur_scale = get_curr_scale_infor_by_input_curr(get_max_curr_by_input_buf());
+
+//     usr_LCD_Fill(TABLE_START_X,TABLE_START_Y,TABLE_START_X+TABLE_WIDTH,\
+//                 TABLE_START_Y+TABLE_HEIGHT,DIS_BACKGROUND);
+
+//     display_draw_a_table(start_point,table_inf);
+
+//     if(vol_scale.vol_dis_scale != dis_tsk.vscale_infor.vol_dis_scale ||\
+//      cur_scale.curr_actual_scale != dis_tsk.cscale_infor.curr_actual_scale){
+//         dis_tsk.vscale_infor = vol_scale;
+//         dis_tsk.cscale_infor = cur_scale;
+//         update_scale_ui_infor(dis_tsk.vscale_infor,dis_tsk.cscale_infor);
+//     }
+
+//     y_start = start_point.y+TABLE_HEIGHT;
+//     y_max_point = TABLE_HEIGHT;
+
+//     i=0;
+//     dat_index=dis_tsk.cycle_buf_start;
+
+//     p_des = dis_tsk.vc[dat_index].out_vol/dis_tsk.vscale_infor.vol_dis_scale;
+//     if(p_des>y_max_point)p_des=y_max_point;
+//     y_deta_start = y_start-p_des;
+
+//    // MO_LOG("e:%d,s:%d\r\n",dis_tsk.cycle_buf_end,dis_tsk.cycle_buf_start);
+//     while (dat_index != dis_tsk.cycle_buf_end){
+
+//         p_des = dis_tsk.vc[dat_index].out_vol/dis_tsk.vscale_infor.vol_dis_scale;
+//         if(p_des>y_max_point)p_des=y_max_point;
+
+//         y_end = y_start-p_des;
+//         LCD_DrawLine(start_point.x+i,y_deta_start,start_point.x+i,y_end,OUT_VOL_COLOR);
+//         y_deta_start = y_end;
+
+//         i++;
+//         dat_index = (dis_tsk.cycle_buf_start+i)%INPUT_DAT_MAX;
+//     }
+    
+//     //MO_LOG("i:%d e:%d\r\n",i,dis_tsk.cycle_buf_end);
+
+// #if 1
+//     i=0;
+//     dat_index=dis_tsk.cycle_buf_start;
+
+//     p_des = dis_tsk.vc[dat_index].out_curr /dis_tsk.cscale_infor.curr_actual_scale;
+//     if(p_des>y_max_point)p_des=y_max_point;
+//     y_deta_start = y_start-p_des;
+
+//    // MO_LOG("e:%d,s:%d\r\n",dis_tsk.cycle_buf_end,dis_tsk.cycle_buf_start);
+//     while (dat_index != dis_tsk.cycle_buf_end){
+
+//         p_des = dis_tsk.vc[dat_index].out_curr /dis_tsk.cscale_infor.curr_actual_scale;
+//         if(p_des>y_max_point)p_des=y_max_point;
+
+//         y_end = y_start-p_des;
+//         LCD_DrawLine(start_point.x+i,y_deta_start,start_point.x+i,y_end,OUT_CURR_COLOR);
+//         y_deta_start = y_end;
+
+//         i++;
+//         dat_index = (dis_tsk.cycle_buf_start+i)%INPUT_DAT_MAX;
+//     }
+// #endif
+
+    mo_u32 x,y,temp;
     mo_u32 i;
     mo_u32 str_start_y,str_start_x;
     mo_u32 p_des;
-    mo_u32 y_end;
-    mo_u32 y_deta_start,y_start;
+    mo_u32 V_y_end,I_y_end;
+    mo_u32 V_y_deta_start,y_start,I_y_deta_start;
     mo_u32 y_max_point;
     mo_u32 dat_index;
     VolScaleInforT vol_scale;
     CurScaleInforT cur_scale;
+    static u8 f_data_full_scr = 0;
 
     PointT start_point={.x=TABLE_START_X,.y=TABLE_START_Y};
     TableInforT table_inf={.row_distance = ROW_DISTANCE,.row_num=ROW_NUMBER,
                             .column_distance=COLUMN_DES,.column_num=COLUMN_NUM};
-
     if(dis_tsk.monitor_table_en==0)return;
-
     monitor_vol_curr_input(v,c);
 
     vol_scale = get_v_scale_infor_by_input_vol(get_max_voltage_by_input_buf());
     cur_scale = get_curr_scale_infor_by_input_curr(get_max_curr_by_input_buf());
-
-    usr_LCD_Fill(TABLE_START_X,TABLE_START_Y,TABLE_START_X+TABLE_WIDTH,\
-                TABLE_START_Y+TABLE_HEIGHT,DIS_BACKGROUND);
-
-    display_draw_a_table(start_point,table_inf);
 
     if(vol_scale.vol_dis_scale != dis_tsk.vscale_infor.vol_dis_scale ||\
      cur_scale.curr_actual_scale != dis_tsk.cscale_infor.curr_actual_scale){
@@ -649,50 +729,259 @@ static void draw_monitor_run_table_ui(mo_u32 v,mo_u32 c){
 
     i=0;
     dat_index=dis_tsk.cycle_buf_start;
+    
+    if(dis_tsk.cycle_buf_end > INPUT_DAT_MAX-1)//数据是否够满屏显示
+        f_data_full_scr = 1;
 
     p_des = dis_tsk.vc[dat_index].out_vol/dis_tsk.vscale_infor.vol_dis_scale;
     if(p_des>y_max_point)p_des=y_max_point;
-    y_deta_start = y_start-p_des;
-
-   // MO_LOG("e:%d,s:%d\r\n",dis_tsk.cycle_buf_end,dis_tsk.cycle_buf_start);
-    while (dat_index != dis_tsk.cycle_buf_end){
-
+    V_y_deta_start = y_start-p_des;
+    
+    for(x = 0;x < table_inf.column_distance * table_inf.column_num;x++)//每列发送一次DMA
+    {
         p_des = dis_tsk.vc[dat_index].out_vol/dis_tsk.vscale_infor.vol_dis_scale;
         if(p_des>y_max_point)p_des=y_max_point;
 
-        y_end = y_start-p_des;
-        LCD_DrawLine(start_point.x+i,y_deta_start,start_point.x+i,y_end,OUT_VOL_COLOR);
-        y_deta_start = y_end;
-
-        i++;
-        dat_index = (dis_tsk.cycle_buf_start+i)%INPUT_DAT_MAX;
-    }
-    
-    //MO_LOG("i:%d e:%d\r\n",i,dis_tsk.cycle_buf_end);
-
-#if 1
-    i=0;
-    dat_index=dis_tsk.cycle_buf_start;
-
-    p_des = dis_tsk.vc[dat_index].out_curr /dis_tsk.cscale_infor.curr_actual_scale;
-    if(p_des>y_max_point)p_des=y_max_point;
-    y_deta_start = y_start-p_des;
-
-   // MO_LOG("e:%d,s:%d\r\n",dis_tsk.cycle_buf_end,dis_tsk.cycle_buf_start);
-    while (dat_index != dis_tsk.cycle_buf_end){
+        // y_end = y_start-p_des;
+        V_y_end = table_inf.row_distance*table_inf.row_num-p_des;
 
         p_des = dis_tsk.vc[dat_index].out_curr /dis_tsk.cscale_infor.curr_actual_scale;
         if(p_des>y_max_point)p_des=y_max_point;
-
-        y_end = y_start-p_des;
-        LCD_DrawLine(start_point.x+i,y_deta_start,start_point.x+i,y_end,OUT_CURR_COLOR);
-        y_deta_start = y_end;
-
-        i++;
-        dat_index = (dis_tsk.cycle_buf_start+i)%INPUT_DAT_MAX;
+        I_y_end = table_inf.row_distance*table_inf.row_num-p_des;
+        // I_y_end = 100-V_y_end;
+        if(0 == (x % table_inf.column_distance) || (x == table_inf.column_distance * table_inf.column_num-1))//是否在纵向网格线上
+        {
+            //
+            for(y = 0;y < table_inf.row_distance*table_inf.row_num;y++)
+            {
+                //voltage
+                if(V_y_end > V_y_deta_start)//向下画线
+                {
+                    if((y >= V_y_deta_start) && (y <= V_y_end) && (x != 0) && (f_data_full_scr || x < dis_tsk.cycle_buf_end))//&& (f_data_full_scr || x < dis_tsk.cycle_buf_end)作用防止刚开始数据不够画线会有尾巴
+                        pBuff[y] = OUT_VOL_COLOR;
+                    else
+                        pBuff[y] = LINE_COLOR;
+                }
+                else
+                {
+                    if((y >= V_y_end) && (y <= V_y_deta_start) && (x != 0))
+                        pBuff[y] = OUT_VOL_COLOR;
+                    else
+                        pBuff[y] = LINE_COLOR;
+                }
+                //current
+                if(I_y_end > I_y_deta_start)//向下画线
+                {
+                    if((y >= I_y_deta_start) && (y <= I_y_end) && (x != 0) && (f_data_full_scr || x < dis_tsk.cycle_buf_end))
+                        pBuff[y] = OUT_CURR_COLOR;
+                    // else
+                    //     pBuff[y] = LINE_COLOR;
+                }
+                else
+                {
+                    if((y >= I_y_end) && (y <= I_y_deta_start) && (x != 0))
+                        pBuff[y] = OUT_CURR_COLOR;
+                    // else
+                    //     pBuff[y] = LINE_COLOR;
+                }
+            }
+        }
+        else
+        {
+            for(y = 0;y < table_inf.row_distance*table_inf.row_num;y++)
+            {
+                
+                if(0 == (y % table_inf.row_distance) || (y == table_inf.row_distance*table_inf.row_num-1))//是否在横向网格线上
+                {
+                    //voltage
+                    if(V_y_end > V_y_deta_start)//向下画线
+                    {
+                        if((y >= V_y_deta_start) && (y <= V_y_end) && (x != 0) && (f_data_full_scr || x < dis_tsk.cycle_buf_end))
+                            pBuff[y] = OUT_VOL_COLOR;
+                        else
+                            pBuff[y] = LINE_COLOR;
+                    }
+                    else
+                    {
+                        if((y >= V_y_end) && (y <= V_y_deta_start) && (x != 0))
+                            pBuff[y] = OUT_VOL_COLOR;
+                        else
+                            pBuff[y] = LINE_COLOR;
+                    }
+                    //current
+                    if(I_y_end > I_y_deta_start)//向下画线
+                    {
+                        if((y >= I_y_deta_start) && (y <= I_y_end) && (x != 0) && (f_data_full_scr || x < dis_tsk.cycle_buf_end))
+                            pBuff[y] = OUT_CURR_COLOR;
+                        // else
+                        //     pBuff[y] = LINE_COLOR;
+                    }
+                    else
+                    {
+                        if((y >= I_y_end) && (y <= I_y_deta_start) && (x != 0))
+                            pBuff[y] = OUT_CURR_COLOR;
+                        // else
+                        //     pBuff[y] = LINE_COLOR;
+                    }
+                }
+                else
+                {
+                    //voltage
+                    if(V_y_end > V_y_deta_start)//向下画线
+                    {
+                        if((y >= V_y_deta_start) && (y <= V_y_end) && (x != 0) && (f_data_full_scr || x < dis_tsk.cycle_buf_end))
+                            pBuff[y] = OUT_VOL_COLOR;
+                        else
+                            pBuff[y] = 0x0000;
+                    }
+                    else
+                    {
+                        if((y >= V_y_end) && (y <= V_y_deta_start) && (x != 0))
+                            pBuff[y] = OUT_VOL_COLOR;
+                        else
+                            pBuff[y] = 0x0000;
+                    }
+                    // current
+                    if(I_y_end > I_y_deta_start)//向下画线
+                    {
+                        if((y >= I_y_deta_start) && (y <= I_y_end) && (x != 0) && (f_data_full_scr || x < dis_tsk.cycle_buf_end))
+                            pBuff[y] = OUT_CURR_COLOR;
+                        // else
+                        //     pBuff[y] = 0x0000;
+                    }
+                    else
+                    {
+                        if((y >= I_y_end) && (y <= I_y_deta_start) && (x != 0))
+                            pBuff[y] = OUT_CURR_COLOR;
+                        // else
+                        //     pBuff[y] = 0x0000;
+                    }
+                }
+            }
+        }
+        V_y_deta_start = V_y_end;
+        I_y_deta_start = I_y_end;
+        dat_index = (dis_tsk.cycle_buf_start+x)%INPUT_DAT_MAX;
+        usr_LCD_Fill_1(x+start_point.x,start_point.y,x+start_point.x,start_point.y+table_inf.row_distance*table_inf.row_num,0);
     }
-#endif
+    //最后一次DMA传输需要等待传输完成
+    while (1) {
+        if (dma_flag_get(DMA1_FDT3_FLAG) != RESET)  // 绛夊緟閫氶亾4浼犺緭瀹屾垚
+        {
+            dma_flag_clear(DMA1_FDT3_FLAG);  // 娓呴櫎閫氶亾4浼犺緭瀹屾垚鏍囧織
+            break;
+        }
+        
+    }
+    f_dma_start = 0;//本次DMA传输结束
+    wk_spi1_init(SPI_FRAME_8BIT);
 }
+
+#else //小乌龟：优化画线算法，改为行扫描的方式
+static void draw_monitor_run_table_ui(mo_u32 v, mo_u32 c) {
+    mo_u32 x, y, temp;
+    mo_u32 row_num, column_num;
+    mo_u32 y_max_point, x_max_point, draw_y_end, draw_x_end;
+    mo_u32 p_des, prev_des;
+    mo_u32 dat_index, prev_idx;
+
+    VolScaleInforT vol_scale;
+    CurScaleInforT cur_scale;
+    mo_u16 delta_y;
+
+    PointT start_point = {.x = TABLE_START_X, .y = TABLE_START_Y};
+    TableInforT table_inf = {.row_distance = ROW_DISTANCE, .row_num = ROW_NUMBER, .column_distance = COLUMN_DES, .column_num = COLUMN_NUM};
+    if (dis_tsk.monitor_table_en == 0) return;
+    monitor_vol_curr_input(v, c);
+
+    vol_scale = get_v_scale_infor_by_input_vol(get_max_voltage_by_input_buf());
+    cur_scale = get_curr_scale_infor_by_input_curr(get_max_curr_by_input_buf());
+
+    if (vol_scale.vol_dis_scale != dis_tsk.vscale_infor.vol_dis_scale || cur_scale.curr_actual_scale != dis_tsk.cscale_infor.curr_actual_scale) {
+        dis_tsk.vscale_infor = vol_scale;
+        dis_tsk.cscale_infor = cur_scale;
+        update_scale_ui_infor(dis_tsk.vscale_infor, dis_tsk.cscale_infor);
+    }
+
+    y_max_point = (table_inf.row_distance * table_inf.row_num);
+    x_max_point = table_inf.column_distance * table_inf.column_num;
+
+    for (row_num = 0; row_num < (y_max_point + 1); row_num++) {
+        for (column_num = 0; column_num < (x_max_point + 1); column_num++) {
+            pBuff[column_num] = 0;
+            if (row_num % table_inf.row_distance == 0) { /*表格画行线 */
+                pBuff[column_num] = LINE_COLOR;
+            }
+            if (column_num % table_inf.column_distance == 0) { /*表格画列线*/
+                pBuff[column_num] = LINE_COLOR;
+            }
+
+            if (column_num >= x_max_point) {
+                continue;
+            }
+
+            dat_index = (dis_tsk.cycle_buf_start + column_num) % INPUT_DAT_MAX;
+
+            if (dat_index != dis_tsk.cycle_buf_end) {
+                p_des = dis_tsk.vc[dat_index].out_vol / dis_tsk.vscale_infor.vol_dis_scale;
+                if (p_des > y_max_point) p_des = y_max_point;
+                if (p_des == row_num) {
+                    pBuff[column_num] = OUT_VOL_COLOR; /*画电压点*/
+                }
+
+                if (column_num) {
+                    prev_des = dis_tsk.vc[prev_idx].out_vol / dis_tsk.vscale_infor.vol_dis_scale;
+                    if (prev_des > y_max_point) prev_des = y_max_point;
+                    if (prev_des > p_des) { /*电压下降*/
+                        if (row_num < prev_des && row_num > p_des) {
+                            pBuff[column_num] = OUT_VOL_COLOR; /*画下降曲线*/
+                        }
+                    } else { /*电压上升或者保持*/
+                        if (row_num > prev_des && row_num < p_des) {
+                            pBuff[column_num] = OUT_VOL_COLOR; /*画上升曲线*/
+                        }
+                    }
+                }
+
+                p_des = dis_tsk.vc[dat_index].out_curr / dis_tsk.cscale_infor.curr_actual_scale;
+                if (p_des > y_max_point) p_des = y_max_point;
+                if (p_des == row_num) {
+                    pBuff[column_num] = OUT_CURR_COLOR; /*画电流点*/
+                }
+
+                if (column_num) {
+                    prev_des = dis_tsk.vc[prev_idx].out_curr / dis_tsk.cscale_infor.curr_actual_scale;
+                    if (prev_des > y_max_point) prev_des = y_max_point;
+                    if (prev_des > p_des) { /*电流下降*/
+                        if (row_num < prev_des && row_num > p_des) {
+                            pBuff[column_num] = OUT_CURR_COLOR; /*画下降曲线*/
+                        }
+                    } else { /*电流上升或者保持*/
+                        if (row_num > prev_des && row_num < p_des) {
+                            pBuff[column_num] = OUT_CURR_COLOR; /*画上升曲线*/
+                        }
+                    }
+                }
+            }
+            prev_idx = dat_index;
+        }
+        draw_y_end = start_point.y + (y_max_point - row_num) - 1;
+        draw_x_end = start_point.x + (table_inf.column_distance * table_inf.column_num) + 1;
+        usr_LCD_Fill_1(start_point.x, draw_y_end, draw_x_end, draw_y_end, 0);
+    }
+
+    // 最后一次DMA传输需要等待传输完成
+    while (1) {
+        if (dma_flag_get(DMA1_FDT3_FLAG) != RESET)  // 绛夊緟閫氶亾4浼犺緭瀹屾垚
+        {
+            dma_flag_clear(DMA1_FDT3_FLAG);  // 娓呴櫎閫氶亾4浼犺緭瀹屾垚鏍囧織
+            break;
+        }
+    }
+    f_dma_start = 0;  // 本次DMA传输结束
+    wk_spi1_init(SPI_FRAME_8BIT);
+}
+#endif
 
 static void draw_rectangle_and_text_inside(u16 x,u16 y,u16 width,u16 heigh,REC_STYLE_T style){
     LCD_Fill(x,y,x+width,y+heigh,style.rec_fill_color);

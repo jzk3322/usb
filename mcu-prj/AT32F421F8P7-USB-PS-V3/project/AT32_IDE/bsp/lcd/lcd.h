@@ -44,6 +44,8 @@ void LCD_ShowFloatNum1(u16 x,u16 y,float num,u8 len,u16 fc,u16 bc,u8 sizey);//�
 
 void LCD_ShowPicture(u16 x,u16 y,u16 length,u16 width,const uint16_t pic[]);//��ʾͼƬ
 
+void usr_LCD_Fill_1(u16 xsta, u16 ysta, u16 xend, u16 yend, u16 color);
+
 
 //������ɫ
 #define WHITE         	 0xFFFF

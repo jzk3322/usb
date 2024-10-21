@@ -137,6 +137,78 @@ void usr_LCD_Fill(u16 xsta, u16 ysta, u16 xend, u16 yend, u16 color) {
     wk_spi1_init(SPI_FRAME_8BIT);
 }
 
+u16 lcd_buff1[256]={0};
+u16 lcd_buff2[256]={0};
+u16 *pBuff = lcd_buff1;
+u8 f_dma_start = 0;
+void usr_Wait_DMA_Trans_Finish()
+{
+    u8 ret = 0;
+    if(f_dma_start == 0)//判断是否已经开启DMA传输，未开启不需要等待传输完成
+        return;
+    while (1) {
+        if (dma_flag_get(DMA1_FDT3_FLAG) != RESET)  // 等待通道4传输完成
+        {
+            dma_flag_clear(DMA1_FDT3_FLAG);  // 清除通道4传输完成标志
+            f_dma_start = 0;
+            break;
+        }
+    }
+}
+/**************************************************************************
+ * @brief   目标实现spi DMA双buff刷新
+ *
+ * @param xsta
+ * @param ysta
+ * @param xend
+ * @param yend
+ * @param color
+ *************************************************************************/
+void usr_LCD_Fill_1(u16 xsta, u16 ysta, u16 xend, u16 yend, u16 color) {
+    u16 color1[1], t = 1;
+    u32 num, num1, n = 1;
+    color1[0] = color;
+
+    if (xend == xsta) {
+        num = 1;
+    } else {
+        num = xend - xsta;
+    }
+    if (yend != ysta) {
+        num *= (yend - ysta);
+    }
+
+    if (xend == xsta || yend == ysta) {
+        n = 0;
+    }
+    // if(f_dma_start)//判断是否已经开启DMA传输，未开启不需要等待传输完成
+        usr_Wait_DMA_Trans_Finish();//等待上次传输完成
+    wk_spi1_init(SPI_FRAME_8BIT);
+    LCD_Address_Set(xsta, ysta, xend - n, yend - n);  // 设置显示范围
+    LCD_CS_Clr();
+        while (spi_i2s_flag_get(SPI1, SPI_I2S_BF_FLAG) == SET);  // spi or i2s busy flag
+    LCD_DC_Set();  // 写数据
+
+    wk_spi1_init(SPI_FRAME_16BIT);
+    {
+        if(num > 256)
+            return;
+        // usr_Wait_DMA_Trans_Finish();//等待上次传输完成
+        wk_dma1_channel3_init(TRUE);//FALSE:存储器地址不自增 TRUE：自增
+        wk_dma_channel_config(USA_DMA_CHANNEL, (uint32_t)&SPI1->dt, (u32)pBuff, num);
+        
+        dma_channel_enable(USA_DMA_CHANNEL, TRUE);
+        f_dma_start = 1;//开启DMA传输标志
+        //切换buff指针
+        if(pBuff == lcd_buff1)
+            pBuff = lcd_buff2;
+        else
+            pBuff = lcd_buff1;
+    }
+    LCD_CS_Set();
+    // wk_spi1_init(SPI_FRAME_8BIT);
+}
+
 /******************************************************************************
       函数说明：在指定位置画点
       入口数据：x,y 画点坐标
