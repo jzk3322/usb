@@ -598,8 +598,8 @@ void LCD_ShowChar(u16 x, u16 y, u8 num, u16 fc, u16 bc, u8 sizey, u8 mode) {
             temp = ascii_2412[num][i];  // 调用12x24字体
         else if (sizey == 32)
             temp = ascii_3216[num][i];  // 调用16x32字体
-        else if (sizey == 64)
-            temp = ascii_6432[num][i];  // 调用32x64字体
+        // else if (sizey == 64)
+        //     temp = ascii_6432[num][i];  // 调用32x64字体
         else
             return;
         for (t = 0; t < 8; t++) {
